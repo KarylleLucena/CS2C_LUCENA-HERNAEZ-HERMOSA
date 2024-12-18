@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiosk Ordering System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;                           /*stylings for the page*/
+            align-items: center;
+            justify-content: center;
+        }
+
+        h1 {
+            color: #65135d;
+        }
+
+        #app {
+            background: #ffffff;
+            border: 1px solid #000000;
+            padding: 20px;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 5px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        button {
+            font-size: 16px;
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #65135d;
+            color: white;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #944075;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .actions button {
+            flex: 1;
+        }
+        
+
+        #receipt {
+            display: none;
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 5px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #receipt h2 {
+            margin-top: 0;
+            color: #65135d;
+        }
+
+        #receipt ul {
+            padding-left: 20px;
+        }
+
+        #receipt ul li {
+            margin: 5px 0;
+        }
+
+        #receipt .total {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        
+    </style>
+</head>
+<body>
+    <h1>Kiosk Ordering Machine</h1>
+    <div id="app">
+        <div id="output">Welcome! Please select your role to proceed.</div>
+        <div class="actions">
+            <button onclick="startAsSeller()">Login as Seller</button>
+            <button onclick="startAsCustomer()">Login as Customer</button>
+        </div>
+    </div>
+
+    <div id="receipt">
+        <h2>Receipt</h2>
+        <ul id="receipt-details"></ul>
+        <p class="total" id="receipt-total"></p>                  <!--receipt display-->
+        <button onclick="closeReceipt()">Close Receipt</button>
+    </div>
+
+    
+    <script>
+        //Data Structures 
+        const sellers = [{ username: "kingkongchips", password: "chips101" }];
+        const categories = { Pasta: [], Desserts: [], Drinks: [] };
+        let customerCart = [];
+
+        //Helper Function
+        function setOutput(message) {
+            document.getElementById("output").innerHTML = message;
+        }
+
+        function setActions(buttons) {
+            const actionsDiv = document.querySelector(".actions");
+            actionsDiv.innerHTML = "";
+            buttons.forEach(button => {
+                const btnElement = document.createElement("button");
+                btnElement.textContent = button.text;
+                btnElement.onclick = button.action;
+                actionsDiv.appendChild(btnElement);
+            });
+        }
+
+        function showReceipt() {
+            document.getElementById("receipt").style.display = "block";
+        }
+
+        function closeReceipt() {
+            document.getElementById("receipt").style.display = "none";
+        }
+
+        //Seller Function
+        function startAsSeller() {
+            const username = prompt("Enter username:");
+            const password = prompt("Enter password:");
+
+            const seller = sellers.find(
+                user => user.username === username && user.password === password
+            );
+
+            if (seller) {
+                setOutput(`Welcome, ${username}! Choose an action`);
+                sellerMenu();
+            } else {
+                setOutput("Invalid username or password.");
+                setActions([{ text: "Back", action: () => mainMenu() }]);
+            }
+        }
+
+        function sellerMenu() {
+            setActions([
+                { text: "Add Item", action: () => addItem() },
+                { text: "Remove Item", action: () => removeItem() },
+                { text: "Logout", action: () => mainMenu() }
+            ]);
+        }
+
+        function addItem() {
+            const category = prompt("Enter category (Pasta, Desserts, Drinks):");
+            if (!categories[category]) {
+                setOutput("Invalid category.");
+                return sellerMenu();
+            }
+
+            const name = prompt("Enter the name of the item:");
+            const price = parseFloat(prompt("Enter the price of the item:"));
+
+            if (!name || isNaN(price) || price <= 0) {
+                setOutput("Invalid item details.");
+                return sellerMenu();
+            }
+
+            categories[category].push({ name, price });
+            setOutput(`${name} added to ${category} for $${price}.`);
+            sellerMenu();
+        }
+
+        function removeItem() {
+            const category = prompt("Enter category (Pasta, Desserts, Drinks):");
+            if (!categories[category] || categories[category].length === 0) {
+                setOutput("Invalid category or no items to remove.");
+                return sellerMenu();
+            }
+
+            const items = categories[category];
+            const itemIndex = parseInt(
+                prompt(
+                    `Select item to remove:\n${items
+                        .map((item, i) => `${i + 1}. ${item.name} - $${item.price}`)
+                        .join("\n")}`
+                )
+            ) - 1;
+
+            if (itemIndex < 0 || itemIndex >= items.length) {
+                setOutput("Invalid choice.");
+                return sellerMenu();
+            }
+
+            const removedItem = items.splice(itemIndex, 1);
+            setOutput(`${removedItem[0].name} removed from ${category}.`);
+            sellerMenu();
+        }
+
+        //Customer Functions
+        function startAsCustomer() {
+            setOutput("Choose an action:");
+            setActions([
+                { text: "Order", action: () => orderItems() },
+                { text: "View Cart", action: () => viewCart() },
+                { text: "Back", action: () => mainMenu() }
+            ]);
+        }
+
+        function orderItems() {
+            const category = prompt("Enter category (Pasta, Desserts, Drinks):");
+            if (!categories[category]) {
+                setOutput("Invalid category.");
+                return startAsCustomer();
+            }
+
+            const items = categories[category];
+            if (items.length === 0) {
+                setOutput(`No items available in ${category}.`);
+                return startAsCustomer();
+            }
+
+            const itemIndex = parseInt(
+                prompt(
+                    `Select item to order:\n${items
+                        .map((item, i) => `${i + 1}. ${item.name} - $${item.price}`)
+                        .join("\n")}`
+                )
+            ) - 1;
+
+            if (itemIndex < 0 || itemIndex >= items.length) {
+                setOutput("Invalid choice.");
+                return startAsCustomer();
+            }
+
+            const quantity = parseInt(prompt("Enter quantity:"));
+            if (isNaN(quantity) || quantity <= 0) {
+                setOutput("Invalid quantity.");
+                return startAsCustomer();
+            }
+
+            const item = items[itemIndex];
+            customerCart.push({ ...item, quantity });
+            setOutput(`${quantity} x ${item.name} added to your cart.`);
+            startAsCustomer();
+        }
+
+        function viewCart() {
+            if (customerCart.length === 0) {
+                setOutput("Your cart is empty.");
+                return startAsCustomer();
+            }
+
+            const cartDetails = customerCart
+                .map(
+                    (item, i) =>
+                        `${i + 1}. ${item.name} - $${item.price} x ${item.quantity} = $${(
+                            item.price * item.quantity
+                        ).toFixed(2)}`
+                )
+                .join("\n");
+
+            setOutput(`Your Cart:\n${cartDetails}`);
+            setActions([
+                { text: "Print Receipt", action: () => printReceipt() },
+                { text: "Remove Item", action: () => removeFromCart() },
+                { text: "Back", action: () => startAsCustomer() }
+            ]);
+        }
+
+        function removeFromCart() {
+            const itemIndex = parseInt(
+                prompt(
+                    `Select item to remove:\n${customerCart
+                        .map(
+                            (item, i) =>
+                                `${i + 1}. ${item.name} - $${item.price} x ${item.quantity}`
+                        )
+                        .join("\n")}`
+                )
+            ) - 1;
+
+            if (itemIndex < 0 || itemIndex >= customerCart.length) {
+                setOutput("Invalid choice.");
+                return viewCart();
+            }
+
+            const removedItem = customerCart.splice(itemIndex, 1);
+            setOutput(`${removedItem[0].name} removed from your cart.`);
+            viewCart();
+        }
+
+        function printReceipt() {
+            const receiptDetails = document.getElementById("receipt-details");
+            const receiptTotal = document.getElementById("receipt-total");
+
+            receiptDetails.innerHTML = customerCart
+                .map(
+                    item =>
+                        `<li>${item.name} - $${item.price} x ${item.quantity} = $${(
+                            item.price * item.quantity
+                        ).toFixed(2)}</li>`
+                )
+                .join("");
+
+            const total = customerCart.reduce(
+                (sum, item) => sum + item.price * item.quantity,
+                0
+            );
+
+            receiptTotal.textContent = `Total: $${total.toFixed(2)}`;
+            showReceipt();
+            customerCart = []; // Clear cart after printing
+        }
+
+        //Main Menu
+        function mainMenu() {
+            setOutput("Welcome! Please select a login choice proceed.");
+            setActions([
+                { text: "Login as Seller", action: () => startAsSeller() },
+                { text: "Login as Customer", action: () => startAsCustomer() }
+            ]);
+        }
+
+        // Start the application
+        mainMenu();
+    </script>
+</body>
+</html>
